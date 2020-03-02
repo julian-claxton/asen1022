@@ -121,6 +121,8 @@ hold on
 scatter(eStrainBrittle, eStressBrittle, '.', 'r');
 
 title("Engineering Stress vs. Engineering Strain in Brittle Sample");
+legend("\sigma_{eng} vs. \epsilon_{eng}");
+
 if SI_UNITS
     xlabel("\epsilon_{eng} (m/m)");
     ylabel("\sigma_{eng} (Pa)");
