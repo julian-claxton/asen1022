@@ -1,77 +1,100 @@
+%% ASEN 1022 Spring 2020 Tensile Test Lab Analysis: Group 33
+%% Authors and Description
+% Group Members: Madelyn Albright, Annelene Belknap, Tycho Cinquini, Julian Claxton
+% 
+% March 9, 2020
+%
+% This program reads data from a tensile test in .csv format for two
+% samples: A brittle specimen and a ductile specimen. The program uses this
+% data to create engineering stress vs. engineering strain diagrams and
+% estimates each material's properties.
+% 
+% Input:
+%
+%   - "ASEN1022_Feb21_Brittle_Data.csv" and "ASEN1022_Jan28_Ductile_Data.csv"
+%   - Initial dimensions of each specimen
+%
+% Output:
+%
+%   - Young's Modulus:           (Brittle and ductile)
+%   - Ultimate Tensile Strength: (Brittle and ductile)
+%   - Fracture Strength:         (Brittle and ductile)
+%   - Yield Strength:            (Ductile only)
+%
+%% Set Up Initial Values
+
 clear; clc;
 
+% Boolean used to determine whether results are given in SI or Imperial
+% units - user defined
 SI_UNITS = false;
 
-% SI conversion ratios
+% Psi to Pa conversion ratio
 PSI_TO_PA = 6894.76;
 
-% specimen dimensions
-initial_length = 2.5; % inches
+% Define specimen dimensions (in imperial units)
+initial_length = 1; % inches
 
 brittle_width = .504; % inches
 brittle_thickness = .187; % inches
+brittleArea = brittle_width * brittle_thickness; % in^2
 
 ductile_width = .5; % inches
 ductile_thickness = .191; % inches
+ductileArea = ductile_width * ductile_thickness; % in^2
 
-brittleData = readmatrix("BrittleData.csv");
-ductileData = readmatrix("DuctileData.csv");
+%% Read Data from Files and Clean Errors
 
-% create variables
+% Read data into matrices
+brittleData = readmatrix("ASEN1022_Feb21_Brittle_Data.csv");
+ductileData = readmatrix("ASEN1022_Jan28_Ductile_Data.csv");
+
+% Create variables for elongation and load
 brittleElongation = brittleData(:,4);
 brittleLoad = brittleData(:,2);
-brittleArea = brittle_width * brittle_thickness; % in^2
 
 ductileElongation = ductileData(:,4);
 ductileLoad = ductileData(:,2);
-ductileArea = ductile_width * ductile_thickness; % in^2
 
-% remove erroneous data
+% Remove erroneous data
 brittleElongation = brittleElongation(brittleElongation >= 0); % remove negative elongation
 brittleLoad = brittleLoad(brittleElongation >= 0); % remove corresponding load value
 
-ductileLoad = ductileLoad(ductileLoad >= 100); % remove outlier
+ductileLoad = ductileLoad(ductileLoad >= 100); % remove post fracture load value
 ductileElongation = ductileElongation(ductileLoad >= 100); % remove corresponding elongation value
 
-% find engineering stress and engineering strain for each sample
-% e stress = load/initial normal cross sectional area
-% e strain = change in length/initial length
+%% Calculate Engineering Stress and Strain
+
+% Eng. stress = load/initial normal cross sectional area
+% Eng. strain = change in length/initial length
+
 eStressBrittle = brittleLoad/brittleArea; % psi
 eStressDuctile = ductileLoad/ductileArea; % psi
 
 eStrainBrittle = brittleElongation/initial_length; % in/in, unitless
 eStrainDuctile = ductileElongation/initial_length; % in/in, unitless
 
-% convert e stress to SI units if specified up top (e strain is unitless)
+% Convert stress to SI if specified up top (e strain is unitless)
 if SI_UNITS
     eStressBrittle = eStressBrittle * PSI_TO_PA;
     eStressDuctile = eStressDuctile * PSI_TO_PA;
 end
 
-% estimate Young's Modulus from linear elastic region
+%% Estimate Young's Modulus
 
-% hard-coding a representative slice of the linear elastic region because
-% compuatationally determining that is too hard
-% representative region is the range of 10000 psi 15000 for both specimens
+% Hard-coding a representative slice of the linear elastic region
+% Representative region is the range of 0 psi 15000 psi for both specimens
 
 % find indices in that range
 if SI_UNITS
-    brittleRegionBottom = find(eStressBrittle >= (10000 * PSI_TO_PA)); % indices with stress above 10 ksi
-    brittleRegionTop = find(eStressBrittle <= (15000 * PSI_TO_PA)); % indices with stress below 15 ksi
-    brittleRegion = intersect(brittleRegionBottom, brittleRegionTop); % indices with 10 ksi < stress < 15 ksi
-
-    ductileRegionBottom = find(eStressDuctile >= (10000 * PSI_TO_PA)); % indices with stress above 10 ksi
-    ductileRegionTop = find(eStressDuctile <= (15000 * PSI_TO_PA)); % indices with stress below 15 ksi
-    ductileRegion = intersect(ductileRegionBottom, ductileRegionTop); % indices with 10 ksi < stress < 15 ksi
+    % find region in SI units
+    brittleRegion = find(eStressBrittle <= (15000 * PSI_TO_PA)); % indices with stress < 15 ksi
+    ductileRegion = find(eStressDuctile <= (15000 * PSI_TO_PA)); % indices with stress below 15 ksi
 
 else   
-    brittleRegionBottom = find(eStressBrittle >= 10000); % indices with stress above 10 ksi
-    brittleRegionTop = find(eStressBrittle <= 15000); % indices with stress below 15 ksi
-    brittleRegion = intersect(brittleRegionBottom, brittleRegionTop); % indices with 10 ksi < stress < 15 ksi
-
-    ductileRegionBottom = find(eStressDuctile >= 10000); % indices with stress above 10 ksi
-    ductileRegionTop = find(eStressDuctile <= 15000); % indices with stress below 15 ksi
-    ductileRegion = intersect(ductileRegionBottom, ductileRegionTop); % indices with 10 ksi < stress < 15 ksi
+    % find region in american units
+    brittleRegion = find(eStressBrittle <= 15000); % indices with stress < 15 ksi
+    ductileRegion = find(eStressDuctile <= 15000); % indices with stress below 15 ksiend
 end
 
 % find x and y values in that region
@@ -81,77 +104,81 @@ brittleElasticX = eStrainBrittle(brittleRegion);
 ductileElasticY = eStressDuctile(ductileRegion);
 ductileElasticX = eStrainDuctile(ductileRegion);
 
-% find slopes for Young's Modulus
+% Find slopes for Young's Modulus
 brittleSlope = polyfit(brittleElasticX, brittleElasticY, 1);
 brittleE = brittleSlope(1);
 
 ductileSlope = polyfit(ductileElasticX, ductileElasticY, 1);
 ductileE = ductileSlope(1);
 
-% find ultimate tensile strengths
+%% Ultimate Tensile Strength
+
 brittleTS = max(eStressBrittle);
 ductileTS = max(eStressDuctile);
 
-% calculate fracture strengths
+%% Fracture Strength
+
 brittleFracture = eStressBrittle(end);
 ductileFracture = eStressDuctile(end);
 
-% make .2 % offset line for ductile only
-ductileOffsetX = eStrainDuctile + .002;
-ductileOffsetY = eStrainDuctile * ductileE;
-ductileOffsetY = ductileOffsetY(ductileOffsetY < ductileTS); % clip all y values above TS
+%% Yield Strength
+
+% Make .2 % offset line for ductile only
+ductileOffsetX = eStrainDuctile + .002; % Offset x values
+ductileOffsetY = eStrainDuctile * ductileE; % Apply Young's Modulus for slope
+ductileOffsetY = ductileOffsetY(ductileOffsetY < ductileTS); % Clip all y values above TS
 ductileOffsetX = ductileOffsetX(ductileOffsetY < ductileTS); % and corresponding x values
 
-% find yield strength of ductile
+% Find intersect of .2% offset line and stress-strain line
 for i = 1:length(eStrainDuctile)
     delta = ((eStrainDuctile(i) - .002) * ductileE) - eStrainDuctile(i); % offset value - e stress
-    if delta >= 0 % offset is greater than or equal to stress
+    if delta >= 0 % offset is greater than or equal to stress (lines intersect)
         intersectIdx = i;
         break
     end
 end
 ductileYS = eStressDuctile(intersectIdx);
 
-% make plots
+%% Plot Data
 close all
 
-% brittle
+% Brittle stress-strain plot
 figure("Name", "Brittle Engineering Stress vs. Engineering Strain");
 hold on
 scatter(eStrainBrittle, eStressBrittle, '.', 'r');
 
-title("Engineering Stress vs. Engineering Strain in Brittle Sample");
-legend("\sigma_{eng} vs. \epsilon_{eng}");
+title("Engineering Stress vs. Engineering Strain in Brittle Sample", 'FontSize', 13);
+legend("\sigma_{eng} vs. \epsilon_{eng}", 'FontSize', 14);
 
 if SI_UNITS
-    xlabel("\epsilon_{eng} (m/m)");
-    ylabel("\sigma_{eng} (Pa)");
+    xlabel("\epsilon_{eng} (m/m)", 'FontSize', 14);
+    ylabel("\sigma_{eng} (Pa)", 'FontSize', 14);
 else
-    xlabel("\epsilon_{eng} (in/in)");
-    ylabel("\sigma_{eng} (psi)");
+    xlabel("\epsilon_{eng} (in/in)", 'FontSize', 14);
+    ylabel("\sigma_{eng} (psi)", 'FontSize', 14);
 end
 
-% ductile
+% Ductile stress-strain plot
 figure("Name", "Ductile Engineering Stress vs. Engineering Strain");
 hold on
 scatter(eStrainDuctile, eStressDuctile, '.', 'b');
 plot(ductileOffsetX, ductileOffsetY, '--k');
 
-title("Engineering Stress vs. Engineering Strain in Ductile Sample");
-legend("\sigma_{eng} vs. \epsilon_{eng}", ".2% Offset Line");
+title("Engineering Stress vs. Engineering Strain in Ductile Sample", 'FontSize', 13);
+legend("\sigma_{eng} vs. \epsilon_{eng}", ".2% Offset Line", 'FontSize', 14);
 
 if SI_UNITS
-    xlabel("\epsilon_{eng} (m/m)");
-    ylabel("\sigma_{eng} (Pa)");
+    xlabel("\epsilon_{eng} (m/m)", 'FontSize', 14);
+    ylabel("\sigma_{eng} (Pa)", 'FontSize', 14);
 else
-    xlabel("\epsilon_{eng} (in/in)");
-    ylabel("\sigma_{eng} (psi)");
+    xlabel("\epsilon_{eng} (in/in)", 'FontSize', 14);
+    ylabel("\sigma_{eng} (psi)", 'FontSize', 14);
 end
 
+%% Output Calculated Values
 
-% return all calculated values
 if SI_UNITS
-    brittleEGiga = brittleE/(10^9); % convert to giga range
+    brittleEGiga = brittleE/(10^9); % Convert to Gpa
     ductileEGiga = ductileE/(10^9);
     
     brittleTSGiga = brittleTS/(10^9);
@@ -184,11 +211,11 @@ else
     
     fprintf("Ultimate Tensile Strength (T.S.):\n");
     fprintf("\tBrittle Specimen: %f psi\n", brittleTS);
-    fprintf("\tDuctile Specimen: %f psi\n", ductileTS);
+    fprintf("\tDuctile Specimen: %f psi\n\n", ductileTS);
     
     fprintf("Fracture Strength:\n");
     fprintf("\tBrittle Specimen: %f psi\n", brittleFracture);
-    fprintf("\tDuctile Specimen: %f psi\n", ductileFracture);
+    fprintf("\tDuctile Specimen: %f psi\n\n", ductileFracture);
     
     fprintf("Yield Strength:\n");
     fprintf("\tDuctile Specimen: %f psi\n", ductileYS);
